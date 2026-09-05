@@ -1,0 +1,107 @@
+# ---------------------------------------------------------------------------
+# Three services, one shared SQLite file, no message broker.
+#
+# The important structural point: `backend` and `scraper` never call each other.
+# They communicate exclusively through the `scrape_jobs` and `event_log` tables,
+# which is what lets the scraper crash, hang or be scaled to zero without the
+# dashboard losing a single feature. Killing `scraper` degrades the UI to
+# "worker offline" and nothing more.
+#
+#   docker compose up -d --build
+#   open http://localhost:3000
+# ---------------------------------------------------------------------------
+
+name: media-archive
+
+services:
+  backend:
+    build:
+      # Root context: the API image needs db/migrations, which no single service
+      # owns.
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      ARCHIVE_DB_PATH: /data/archive.db
+      ARCHIVE_ROOT: /archive
+      MIGRATIONS_DIR: /srv/db/migrations
+      BUNDLE_CACHE_DIR: /data/bundles
+      PHOTOS_DIR: ${PHOTOS_DIR:-photos}
+      VIDEOS_DIR: ${VIDEOS_DIR:-videos}
+      MIN_MEDIA_BYTES: ${MIN_MEDIA_BYTES:-1024}
+      # Only needed if you point a browser straight at :8000 instead of going
+      # through the Next proxy.
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    volumes:
+      # The archive is bind-mounted, not a named volume, because "files must
+      # remain completely raw for direct local viewing" means you need to be
+      # able to open them in your own file manager and video player.
+      - ${ARCHIVE_HOST_PATH:-./archive}:/archive
+      - archive-data:/data
+    ports:
+      # Exposed for curl and the OpenAPI docs at /docs. The browser does not
+      # need it; the web service proxies /api server-side.
+      - "${BACKEND_PORT:-8000}:8000"
+
+  scraper:
+    build:
+      context: .
+      dockerfile: scraper/Dockerfile
+    restart: unless-stopped
+    # Ordering only, not a dependency. The worker applies migrations itself and
+    # will sit in its poll loop harmlessly if the backend is down; this just
+    # avoids two processes racing to create the schema on a cold start.
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      ARCHIVE_DB_PATH: /data/archive.db
+      ARCHIVE_ROOT: /archive
+      MIGRATIONS_DIR: /srv/db/migrations
+      COOKIE_DIR: /data/cookies
+      PHOTOS_DIR: ${PHOTOS_DIR:-photos}
+      VIDEOS_DIR: ${VIDEOS_DIR:-videos}
+      # Identity in worker_heartbeats and scrape_jobs.claimed_by. Leave unset to
+      # get hostname plus a random suffix, which is what you want if you scale
+      # this service past one replica.
+      WORKER_ID: ${WORKER_ID:-}
+      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-10}
+      LEASE_SECONDS: ${LEASE_SECONDS:-1800}
+      REQUEST_TIMEOUT_SECONDS: ${REQUEST_TIMEOUT_SECONDS:-45}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Rotation hooks. Empty means a direct connection, which is the honest
+      # default rather than pretending to be stealthy.
+      SCRAPER_PROXIES: ${SCRAPER_PROXIES:-}
+      # Set to walk a local fixture tree instead of the network. Useful for
+      # exercising the full pacing and dedup path offline.
+      SCRAPER_FIXTURE_DIR: ${SCRAPER_FIXTURE_DIR:-}
+      # Plan and log every download without writing a byte.
+      SCRAPER_DRY_RUN: ${SCRAPER_DRY_RUN:-}
+    volumes:
+      - ${ARCHIVE_HOST_PATH:-./archive}:/archive
+      - archive-data:/data
+    # Everything else — schedule window, delays, per-run budgets, which accounts
+    # are enabled — lives in the `settings` and `accounts` tables and is edited
+    # from the Web GUI. There is no scraper config file by design.
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        # Baked in at build time: Next freezes rewrites into its routes
+        # manifest, so this cannot be changed by restarting the container.
+        BACKEND_INTERNAL_URL: http://backend:8000
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+
+volumes:
+  # Database, WAL sidecars, bundle cache and cookie jars. A named volume rather
+  # than a bind mount so SQLite is never asked to take locks over a filesystem
+  # that does not implement them properly, which is a real failure mode on
+  # macOS and Windows bind mounts.
+  archive-data:

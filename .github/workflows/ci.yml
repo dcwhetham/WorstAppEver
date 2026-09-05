@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A superseded run on the same branch has nothing useful left to say.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The two Python services are separate jobs rather than one, matching the fact
+  # that they share no code. If a change to the scraper can break the backend
+  # suite, the isolation the whole architecture depends on has already leaked.
+  backend:
+    name: backend (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - run: pip install -r backend/requirements.txt
+      - run: pip install pytest httpx ruff
+      - name: Lint
+        run: ruff check backend
+      - name: Format check
+        run: ruff format --check backend
+      - name: Tests
+        run: python -m pytest
+        working-directory: backend
+
+  scraper:
+    name: scraper (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - run: pip install -r scraper/requirements.txt
+      - run: pip install pytest ruff
+      - name: Lint
+        run: ruff check scraper
+      - name: Format check
+        run: ruff format --check scraper
+      # Runs the full engine against the fixture adapter: discovery, hashing,
+      # all four dedup guards, pacing and requeueing across repeated runs, with
+      # no network access.
+      - name: Tests
+        run: python -m pytest
+        working-directory: scraper
+
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - run: npm run build
+
+  schema:
+    name: schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Applying the migrations to an empty database catches DDL that only fails
+      # at execution time, which neither Python suite would surface if it stopped
+      # exercising a table.
+      - name: Apply migrations to a fresh database
+        run: |
+          set -euo pipefail
+          for f in db/migrations/*.sql; do
+            echo "-- $f"
+            sqlite3 /tmp/ci.db < "$f"
+          done
+      - name: Load the demo seed
+        run: sqlite3 /tmp/ci.db < db/seed/demo_seed.sql
+      - name: Integrity and foreign key check
+        run: |
+          set -euo pipefail
+          sqlite3 /tmp/ci.db "PRAGMA integrity_check;" | tee /tmp/integrity.txt
+          grep -qx ok /tmp/integrity.txt
+          # Empty output means no violations. Any row here is a broken reference.
+          test -z "$(sqlite3 /tmp/ci.db 'PRAGMA foreign_key_check;')"
+
+  images:
+    name: docker images
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            context: .
+            dockerfile: backend/Dockerfile
+          - name: scraper
+            context: .
+            dockerfile: scraper/Dockerfile
+          - name: web
+            context: ./web
+            dockerfile: web/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: false
+          load: false
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
