@@ -1,0 +1,13 @@
+# Runtime dependencies for /scraper.
+#
+# Everything except HTTP is stdlib. httpx is used for HTTP/2 support, which
+# matters for looking like a browser: an HTTP/1.1-only client is a bot signal
+# regardless of the headers it sends.
+#
+# httpx is imported lazily in worker/net.py, so the queue, pacing, sync and
+# scheduler modules all import and test cleanly without it installed.
+httpx[http2]>=0.27,<1.0
+
+# Uncomment when implementing a mirror adapter that parses HTML.
+# selectolax>=0.3.21   # much faster than BeautifulSoup for large listing pages
+# beautifulsoup4>=4.12

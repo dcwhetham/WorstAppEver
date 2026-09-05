@@ -1,0 +1,7 @@
+# Runtime dependencies for /backend.
+# Pinned to minor ranges: SQLite and the stdlib do the heavy lifting here, so
+# there is little surface for a patch release to break.
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.27,<1.0
+pydantic>=2.6,<3.0
+python-multipart>=0.0.9
