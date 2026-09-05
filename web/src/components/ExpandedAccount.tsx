@@ -21,6 +21,7 @@ import {
 import { Badge, StatusBadges } from "@/components/ui/Badge";
 import { api, downloadBundle } from "@/lib/api";
 import { absoluteTime, compactNumber, humanBytes, relativeTime } from "@/lib/format";
+import type { AccountCard as AccountCardModel } from "@/lib/types";
 import { useAccount, useDismissable, useRevalidateAll } from "@/lib/hooks";
 
 /**
@@ -41,19 +42,29 @@ import { useAccount, useDismissable, useRevalidateAll } from "@/lib/hooks";
  * re-laying it out.
  */
 
-const PANEL_SPRING = { type: "spring", stiffness: 260, damping: 30 } as const;
+// Tween, not spring. A spring overshoots the target size, which is what made
+// open/close feel like a bounce-then-snap — the box grows past its resting
+// size, then the content reflows underneath.
+const PANEL_TWEEN = { type: "tween", duration: 0.38, ease: [0.22, 1, 0.36, 1] } as const;
 
 export function ExpandedAccount({
   accountId,
+  preview,
   onClose,
   onShowLogs,
 }: {
   accountId: number | null;
+  /** Grid card already in memory — used so the hero does not flash "Loading…". */
+  preview: AccountCardModel | null;
   onClose: () => void;
   onShowLogs: (id: number) => void;
 }) {
   useDismissable(accountId !== null, onClose);
-  const { account } = useAccount(accountId);
+  const { account: fetched } = useAccount(accountId);
+  // Prefer the fresh detail payload, but paint immediately from the card the
+  // user clicked. Waiting on the detail request is what made the open jump:
+  // the shell morphed, then the hero and title popped in a frame later.
+  const account = fetched ?? preview;
   const revalidate = useRevalidateAll();
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
@@ -76,26 +87,29 @@ export function ExpandedAccount({
   );
 
   return (
-    <AnimatePresence>
-      {accountId !== null && (
-        <motion.div
-          className="fixed inset-0 z-40 overflow-y-auto"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-        >
+    <>
+      <AnimatePresence>
+        {accountId !== null && (
           <motion.div
-            className="fixed inset-0 bg-abyss/85 backdrop-blur-lg"
+            key="account-scrim"
+            className="fixed inset-0 z-40 bg-abyss/85 backdrop-blur-lg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.28 }}
             onClick={onClose}
             aria-hidden
           />
+        )}
+      </AnimatePresence>
 
-          <div className="relative mx-auto w-full max-w-5xl px-3 py-6 sm:px-6 sm:py-10">
+      {accountId !== null && (
+          <div className="pointer-events-none fixed inset-0 z-40 overflow-y-auto">
+            <div className="mx-auto w-full max-w-5xl px-3 py-6 sm:px-6 sm:py-10">
             <motion.article
               layoutId={`account-shell-${accountId}`}
-              transition={PANEL_SPRING}
-              className="overflow-hidden rounded-2xl border border-hairline-bright bg-surface shadow-[0_40px_120px_-24px_rgba(0,0,0,0.95)]"
+              transition={PANEL_TWEEN}
+              className="pointer-events-auto overflow-hidden rounded-2xl border border-hairline-bright bg-surface shadow-[0_40px_120px_-24px_rgba(0,0,0,0.95)]"
             >
               {/* Hero. Fixed height so the layout animation has a stable target;
                   an auto-height hero measured mid-morph causes a visible jump. */}
@@ -124,9 +138,9 @@ export function ExpandedAccount({
 
                 <motion.div
                   className="absolute bottom-0 left-0 right-0 p-4 sm:p-6"
-                  initial={{ opacity: 0, y: 14 }}
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.12, duration: 0.28 }}
+                  transition={{ delay: 0.18, duration: 0.22 }}
                 >
                   <div className="mb-2 flex flex-wrap gap-1.5">
                     {account && (
@@ -151,7 +165,7 @@ export function ExpandedAccount({
                 className="space-y-6 p-4 sm:p-6"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.12, duration: 0.3 }}
+                transition={{ delay: 0.2, duration: 0.24 }}
               >
                 {account ? (
                   <>
@@ -284,7 +298,11 @@ export function ExpandedAccount({
                       )}
                     </section>
 
-                    <LinkManager account={account} onChanged={revalidate} />
+                    {fetched ? (
+                      <LinkManager account={fetched} onChanged={revalidate} />
+                    ) : (
+                      <div className="h-24 animate-pulse rounded-xl bg-surface-2" />
+                    )}
 
                     <MediaGallery accountId={account.id} />
                   </>
@@ -297,23 +315,23 @@ export function ExpandedAccount({
                 )}
               </motion.div>
             </motion.article>
+            </div>
           </div>
-
-          <AnimatePresence>
-            {toast && (
-              <motion.div
-                className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full border border-cyan/35 bg-surface/95 px-4 py-2 text-[12.5px] text-ink shadow-lg backdrop-blur"
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-              >
-                {toast}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
       )}
-    </AnimatePresence>
+
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full border border-cyan/35 bg-surface/95 px-4 py-2 text-[12.5px] text-ink shadow-lg backdrop-blur"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 

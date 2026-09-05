@@ -32,10 +32,10 @@ import { usePrefersReducedMotion } from "@/lib/hooks";
  * card size, and a card that oscillates under the cursor is genuinely hard to
  * click.
  */
-const REST_TILT_X = 7.5; // degrees, leaning backward at rest
-const LEAN_TILT_X = -5; // degrees, leaning toward the viewer on hover
-const MAX_POINTER_TILT = 9; // extra degrees from cursor position
-const HOVER_LIFT = 26; // px of translateZ on hover
+const REST_TILT_X = 2.5; // degrees, leaning backward at rest
+const LEAN_TILT_X = -2; // degrees, leaning toward the viewer on hover
+const MAX_POINTER_TILT = 4; // extra degrees from cursor position
+const HOVER_LIFT = 10; // px of translateZ on hover
 
 const TILT_SPRING = { stiffness: 260, damping: 26, mass: 0.6 } as const;
 // Softer than the tilt: the sheen is a light effect, and a snappy highlight
@@ -121,9 +121,18 @@ export function AccountCard({
   }, [targetX, targetY, targetLift, sheenOpacity, sheenX, sheenY]);
 
   const handleActivate = useCallback(() => {
-    if (selectionMode) onToggleSelect(account.id);
-    else onOpen(account.id);
-  }, [selectionMode, onToggleSelect, onOpen, account.id]);
+    if (selectionMode) {
+      onToggleSelect(account.id);
+      return;
+    }
+    // Flatten before the shared-element takes over. The layoutId lives inside this
+    // tilted parent; if the morph starts from a leaned card, the panel pops from
+    // a rotated box onto a flat one and the open reads as a jump.
+    targetX.set(0);
+    targetY.set(0);
+    targetLift.set(0);
+    onOpen(account.id);
+  }, [selectionMode, onToggleSelect, onOpen, account.id, targetX, targetY, targetLift]);
 
   const hasErrors = account.unresolved_error_count > 0;
   const label = account.display_name || account.name;
@@ -131,10 +140,10 @@ export function AccountCard({
   return (
     // `scene` supplies the perspective. Without it on the parent, rotateX is an
     // orthographic squash with no depth at all.
-    <div className="scene">
+    <div className="scene relative z-0 hover:z-10">
       <motion.div
         style={
-          reducedMotion
+          reducedMotion || isExpanded
             ? undefined
             : { rotateX, rotateY, translateZ: lift, transformPerspective: 1100, boxShadow }
         }

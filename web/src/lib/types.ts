@@ -39,6 +39,21 @@ export interface JobProgress {
   percent_complete: number | null;
 }
 
+export interface JobRecord extends JobProgress {
+  account_id: number | null;
+  account_name: string | null;
+  trigger: string;
+  priority: number;
+  attempts: number;
+  max_attempts: number;
+  scheduled_for: string;
+  claimed_by: string | null;
+  finished_at: string | null;
+  error_summary: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ErrorSummary {
   id: number;
   ts: string;
