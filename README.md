@@ -90,7 +90,10 @@ media-archive/
 │   │       ├── base.py          # SourceAdapter protocol + error taxonomy
 │   │       ├── __init__.py      # fallback chain, ranked mirrors-before-origin
 │   │       ├── fixture.py       # offline adapter for tests
-│   │       └── mirror.py        # imginn / pixnoy / instagram stubs
+│   │       ├── htmlparse.py     # shared HTML/JSON parsers for mirrors
+│   │       ├── imginn.py        # Imginn profile + /api/posts adapter
+│   │       ├── pixnoy.py        # Pixnoy/Picnob profile + /api/posts adapter
+│   │       └── mirror.py        # shared HTTP helpers; Instagram still a stub
 │   └── tests/
 │       ├── test_sync.py
 │       └── test_pacing.py
@@ -413,10 +416,11 @@ sibling process. Without that (or a separate `make scraper` / `docker compose up
 scraper`), adding an account queues a job that nobody claims and the header
 reads **Scraper never connected** — the dashboard does not scrape itself.
 
-The bundled Instagram / Imginn / Pixnoy adapters are stubs. A job against a live
-handle will fail loudly in the log viewer until one of them is implemented;
-point `SCRAPER_FIXTURE_DIR` at a local tree to exercise the real incremental
-path offline.
+Imginn and Pixnoy are implemented (profile HTML plus their load-more APIs).
+Both sites sit behind Cloudflare; if a job logs a challenge, export a Netscape
+`cookies.txt` from a browser session into `COOKIE_DIR/imginn.txt` or
+`COOKIE_DIR/pixnoy.txt`. The Instagram adapter is still a stub. Point
+`SCRAPER_FIXTURE_DIR` at a local tree to exercise the incremental path offline.
 
 Migrations run automatically on startup for both Python services. To load sample
 accounts, jobs and error history:
@@ -441,13 +445,10 @@ delays, so it exercises the real code paths with no network access.
 
 ## A note on scope
 
-The mirror adapters in `scraper/worker/adapters/mirror.py` are deliberate stubs.
-They raise `AdapterUnavailableError`, which the fallback chain handles as
-designed, so the full system runs end to end today against the fixture adapter.
-Implementing them means writing request and parsing logic for a specific site,
-which is a decision about what you are allowed to collect and at what rate — not
-something to bury in scaffolding. `base.py` defines the protocol and the error
-taxonomy; the engine, pacing, dedup, retry and reporting around it are complete.
+Imginn and Pixnoy parse public viewer HTML. Mirror markup changes without
+notice; a parse that yields nothing is treated as an adapter failure so the
+next source in the chain is tried. Instagram remains unimplemented — the
+official Graph API is the only path that does not involve session cookies.
 
 Only collect what you have the right to collect, and respect the terms and rate
 limits of any source you point this at.

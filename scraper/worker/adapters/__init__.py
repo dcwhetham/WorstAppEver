@@ -21,7 +21,9 @@ from pathlib import Path
 from ..config import RuntimeSettings, WorkerEnv
 from .base import SourceAdapter
 from .fixture import FixtureAdapter
-from .mirror import ImginnAdapter, InstagramAdapter, PixnoyAdapter
+from .imginn import ImginnAdapter
+from .mirror import InstagramAdapter
+from .pixnoy import PixnoyAdapter
 
 __all__ = ["build_chain", "SourceAdapter"]
 

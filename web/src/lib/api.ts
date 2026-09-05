@@ -17,6 +17,7 @@ import type {
   AccountLink,
   ArchiveStats,
   JobProgress,
+  JobRecord,
   LogEntry,
   MediaPage,
   MediaType,
@@ -134,7 +135,7 @@ export const api = {
     request<{ resolved: number }>(`/api/accounts/${accountId}/logs/resolve`, { method: "POST" }),
 
   jobs: (accountId?: number) =>
-    request<JobProgress[]>(`/api/jobs${accountId ? `?account_id=${accountId}` : ""}`),
+    request<JobRecord[]>(`/api/jobs${accountId ? `?account_id=${accountId}` : ""}`),
 
   cancelJob: (jobId: number) =>
     request<{ status: string }>(`/api/jobs/${jobId}/cancel`, { method: "POST" }),
