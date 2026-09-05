@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import { AccountGrid } from "@/components/AccountGrid";
+import { ActivityPanel } from "@/components/ActivityPanel";
 import { BatchActionBar } from "@/components/BatchActionBar";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { ExpandedAccount } from "@/components/ExpandedAccount";
@@ -55,6 +56,8 @@ export function Dashboard() {
     <main className="mx-auto max-w-[1600px] space-y-6 px-4 py-6 sm:px-6 sm:py-8">
       <DashboardHeader />
 
+      <ActivityPanel />
+
       <FilterBar
         filters={filters}
         onChange={setFilters}
@@ -83,6 +86,7 @@ export function Dashboard() {
 
       <ExpandedAccount
         accountId={expandedId}
+        preview={accounts?.find((account) => account.id === expandedId) ?? null}
         onClose={() => setExpandedId(null)}
         onShowLogs={setLogAccountId}
       />

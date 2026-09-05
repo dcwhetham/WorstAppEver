@@ -103,9 +103,14 @@
 @utility scene {
   /* Establishes the 3D context the tilt cards rotate inside. Without a
    * perspective on the *parent*, rotateX on the child is an orthographic
-   * squash with no sense of depth. */
+   * squash with no sense of depth.
+   *
+   * Padding is the rest-tilt gutter: a backward lean projects the card's
+   * corners outside its layout box, and without this they clip the neighbour.
+   */
   perspective: var(--perspective-card);
   perspective-origin: 50% 40%;
+  padding: 0.95rem 0.7rem;
 }
 
 @utility preserve-3d {
