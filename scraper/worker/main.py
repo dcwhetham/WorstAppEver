@@ -221,9 +221,7 @@ class Worker:
             eta_seconds=0,
             message=result.message,
         )
-        finish_job(
-            self.conn, job_id, result.status, message=result.message, error_summary=result.error_summary
-        )
+        finish_job(self.conn, job_id, result.status, message=result.message, error_summary=result.error_summary)
 
         # Only now can the next slice of a paced backfill be queued: the account's
         # live-job slot was occupied until the line above closed this one.

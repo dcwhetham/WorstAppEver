@@ -228,9 +228,7 @@ def create_link(conn: Conn, account_id: int, payload: LinkCreate) -> dict[str, A
 @router.delete("/{account_id}/links/{link_id}", status_code=204)
 def delete_link(conn: Conn, account_id: int, link_id: int) -> None:
     with transaction(conn):
-        cursor = conn.execute(
-            "DELETE FROM account_links WHERE id = ? AND account_id = ?", (link_id, account_id)
-        )
+        cursor = conn.execute("DELETE FROM account_links WHERE id = ? AND account_id = ?", (link_id, account_id))
     if cursor.rowcount == 0:
         raise HTTPException(status_code=404, detail="link not found")
 
@@ -255,9 +253,7 @@ batch_router = APIRouter(prefix="/batch", tags=["batch"])
 def batch_run(conn: Conn, payload: BatchJobCreate) -> dict[str, Any]:
     """Bulk scrape. Jobs are staggered so a 40-account batch is not a traffic spike."""
     with transaction(conn):
-        return jobs_repo.enqueue_batch(
-            conn, payload.account_ids, job_type=payload.job_type, priority=payload.priority
-        )
+        return jobs_repo.enqueue_batch(conn, payload.account_ids, job_type=payload.job_type, priority=payload.priority)
 
 
 @batch_router.patch("/accounts")

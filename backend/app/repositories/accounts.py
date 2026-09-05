@@ -68,9 +68,7 @@ def row_to_card(row: sqlite3.Row) -> dict[str, Any]:
         }
 
     cover_id = data.get("cover_media_id")
-    card = {
-        key: value for key, value in data.items() if not key.startswith(("active_", "last_error_", "cover_"))
-    }
+    card = {key: value for key, value in data.items() if not key.startswith(("active_", "last_error_", "cover_"))}
     card.update(
         is_favorite=_bool(data["is_favorite"]),
         scrape_enabled=_bool(data["scrape_enabled"]),

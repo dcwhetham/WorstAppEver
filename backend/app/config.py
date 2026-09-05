@@ -29,12 +29,8 @@ def _csv(env: str, default: str) -> list[str]:
 class Settings:
     db_path: Path = field(default_factory=lambda: _path("ARCHIVE_DB_PATH", REPO_ROOT / "data" / "archive.db"))
     archive_root: Path = field(default_factory=lambda: _path("ARCHIVE_ROOT", REPO_ROOT / "archive"))
-    migrations_dir: Path = field(
-        default_factory=lambda: _path("MIGRATIONS_DIR", REPO_ROOT / "db" / "migrations")
-    )
-    bundle_cache_dir: Path = field(
-        default_factory=lambda: _path("BUNDLE_CACHE_DIR", REPO_ROOT / "data" / "bundles")
-    )
+    migrations_dir: Path = field(default_factory=lambda: _path("MIGRATIONS_DIR", REPO_ROOT / "db" / "migrations"))
+    bundle_cache_dir: Path = field(default_factory=lambda: _path("BUNDLE_CACHE_DIR", REPO_ROOT / "data" / "bundles"))
 
     cors_origins: list[str] = field(default_factory=lambda: _csv("CORS_ORIGINS", "http://localhost:3000"))
     api_prefix: str = "/api"
@@ -54,15 +50,11 @@ class Settings:
     min_media_bytes: int = field(default_factory=lambda: int(os.getenv("MIN_MEDIA_BYTES", "1024")))
 
     # Streaming reads keep memory flat when hashing multi-GB videos.
-    hash_chunk_bytes: int = field(
-        default_factory=lambda: int(os.getenv("HASH_CHUNK_BYTES", str(1024 * 1024)))
-    )
+    hash_chunk_bytes: int = field(default_factory=lambda: int(os.getenv("HASH_CHUNK_BYTES", str(1024 * 1024))))
 
     @property
     def image_extensions(self) -> frozenset[str]:
-        return frozenset(
-            {".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif", ".avif", ".bmp", ".tiff"}
-        )
+        return frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif", ".avif", ".bmp", ".tiff"})
 
     @property
     def video_extensions(self) -> frozenset[str]:

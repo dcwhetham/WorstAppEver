@@ -270,8 +270,7 @@ def scan_account(
         source="scanner",
         event="scan_complete",
         message=(
-            f"Indexed {report.files_seen} files "
-            f"({report.files_added} new, {report.files_marked_missing} missing)"
+            f"Indexed {report.files_seen} files ({report.files_added} new, {report.files_marked_missing} missing)"
         ),
         account_id=account_id,
         detail=report.as_dict(),
@@ -293,9 +292,7 @@ def scan_archive(
 
     with transaction(conn):
         if account_id is not None:
-            row = conn.execute(
-                "SELECT id, name, archive_path FROM accounts WHERE id = ?", (account_id,)
-            ).fetchone()
+            row = conn.execute("SELECT id, name, archive_path FROM accounts WHERE id = ?", (account_id,)).fetchone()
             if row is None:
                 report.errors.append(f"account {account_id} not found")
                 return report

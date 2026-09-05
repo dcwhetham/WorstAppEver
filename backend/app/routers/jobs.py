@@ -23,9 +23,7 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 def list_jobs(
     conn: Conn,
     account_id: int | None = None,
-    status: str | None = Query(
-        None, pattern="^(queued|claimed|running|succeeded|failed|cancelled|deferred)$"
-    ),
+    status: str | None = Query(None, pattern="^(queued|claimed|running|succeeded|failed|cancelled|deferred)$"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ) -> list[dict[str, Any]]:

@@ -94,9 +94,7 @@ def plan_cycle(conn: sqlite3.Connection, settings: RuntimeSettings, *, now: date
     queued = 0
     for index, account in enumerate(candidates):
         interval = revisit_interval_hours(bool(account["is_favorite"]), account["status"])
-        priority = int(account["priority"]) + (
-            settings.favorite_priority_boost if account["is_favorite"] else 0
-        )
+        priority = int(account["priority"]) + (settings.favorite_priority_boost if account["is_favorite"] else 0)
         # Randomised spacing so the queue does not fill on a metronome, which is
         # visible in request timing even when individual delays are jittered.
         delay = index * random.uniform(*STAGGER_SECONDS)

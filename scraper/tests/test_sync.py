@@ -24,9 +24,7 @@ def test_first_sync_downloads_and_files_by_media_type(conn, env, settings):
     assert len(list((env.archive_root / "alpha" / "photos").glob("*.jpg"))) == 2
     assert len(list((env.archive_root / "alpha" / "videos").glob("*.mp4"))) == 1
 
-    counts = conn.execute(
-        "SELECT image_count, video_count FROM accounts WHERE id = ?", (account_id,)
-    ).fetchone()
+    counts = conn.execute("SELECT image_count, video_count FROM accounts WHERE id = ?", (account_id,)).fetchone()
     assert (counts["image_count"], counts["video_count"]) == (2, 1)
 
 
@@ -41,10 +39,7 @@ def test_second_sync_downloads_nothing(conn, env, settings):
     second = run_sync(conn, env, settings, queue_job(conn, account_id))
     assert second.downloaded == 0
     assert second.message == "Already up to date"
-    assert (
-        conn.execute("SELECT COUNT(*) FROM media_files WHERE account_id = ?", (account_id,)).fetchone()[0]
-        == 3
-    )
+    assert conn.execute("SELECT COUNT(*) FROM media_files WHERE account_id = ?", (account_id,)).fetchone()[0] == 3
 
 
 def test_only_new_items_are_fetched_on_a_later_run(conn, env, settings):
@@ -57,10 +52,7 @@ def test_only_new_items_are_fetched_on_a_later_run(conn, env, settings):
 
     result = run_sync(conn, env, settings, queue_job(conn, account_id))
     assert result.downloaded == 1
-    assert (
-        conn.execute("SELECT COUNT(*) FROM media_files WHERE account_id = ?", (account_id,)).fetchone()[0]
-        == 4
-    )
+    assert conn.execute("SELECT COUNT(*) FROM media_files WHERE account_id = ?", (account_id,)).fetchone()[0] == 4
 
 
 def test_identical_bytes_under_a_new_remote_id_are_deduplicated(conn, env, settings):
@@ -78,15 +70,10 @@ def test_identical_bytes_under_a_new_remote_id_are_deduplicated(conn, env, setti
     assert result.skipped_duplicate == 1
 
     # One row, one file: the copy is recognised, not archived twice.
-    assert (
-        conn.execute("SELECT COUNT(*) FROM media_files WHERE account_id = ?", (account_id,)).fetchone()[0]
-        == 1
-    )
+    assert conn.execute("SELECT COUNT(*) FROM media_files WHERE account_id = ?", (account_id,)).fetchone()[0] == 1
     assert len(list((env.archive_root / "alpha" / "photos").glob("*.jpg"))) == 1
 
-    state = conn.execute(
-        "SELECT state, last_error FROM remote_index WHERE remote_id LIKE '%reposted%'"
-    ).fetchone()
+    state = conn.execute("SELECT state, last_error FROM remote_index WHERE remote_id LIKE '%reposted%'").fetchone()
     assert state["state"] == "duplicate"
     assert "hash matched after download" in state["last_error"]
 
@@ -107,18 +94,13 @@ def test_existing_file_on_disk_is_adopted_without_downloading(conn, env, setting
     payload = existing.read_bytes()
 
     conn.execute("DELETE FROM media_files WHERE account_id = ?", (account_id,))
-    conn.execute(
-        "UPDATE remote_index SET state = 'pending', attempts = 0 WHERE account_id = ?", (account_id,)
-    )
+    conn.execute("UPDATE remote_index SET state = 'pending', attempts = 0 WHERE account_id = ?", (account_id,))
     assert existing.is_file() and existing.read_bytes() == payload
 
     result = run_sync(conn, env, settings, queue_job(conn, account_id))
     assert result.skipped_existing == 1
     assert result.downloaded == 0
-    assert (
-        conn.execute("SELECT COUNT(*) FROM media_files WHERE account_id = ?", (account_id,)).fetchone()[0]
-        == 1
-    )
+    assert conn.execute("SELECT COUNT(*) FROM media_files WHERE account_id = ?", (account_id,)).fetchone()[0] == 1
 
 
 def test_remote_advertised_hash_skips_the_transfer(conn, env, settings):
@@ -156,9 +138,7 @@ def test_soft_deleted_media_is_not_redownloaded(conn, env, settings):
     ).fetchone()
     (env.archive_root / "alpha" / victim["rel_path"]).unlink()
     conn.execute("UPDATE media_files SET deleted_at = '2026-02-01T00:00:00Z' WHERE id = ?", (victim["id"],))
-    conn.execute(
-        "UPDATE remote_index SET state = 'pending', attempts = 0 WHERE account_id = ?", (account_id,)
-    )
+    conn.execute("UPDATE remote_index SET state = 'pending', attempts = 0 WHERE account_id = ?", (account_id,))
 
     result = run_sync(conn, env, settings, queue_job(conn, account_id))
     assert result.downloaded == 0
@@ -232,10 +212,7 @@ def test_paced_backfill_completes_across_repeated_runs(conn, env, settings):
 
     assert downloaded == 18
     assert runs < 12, "backfill must converge, not stall"
-    assert (
-        conn.execute("SELECT COUNT(*) FROM media_files WHERE account_id = ?", (account_id,)).fetchone()[0]
-        == 18
-    )
+    assert conn.execute("SELECT COUNT(*) FROM media_files WHERE account_id = ?", (account_id,)).fetchone()[0] == 18
     # 18 files downloaded exactly once each: no duplicates on disk.
     assert len(list((env.archive_root / "alpha" / "photos").glob("*.jpg"))) == 18
 
@@ -319,16 +296,12 @@ def test_rate_limit_defers_instead_of_failing(conn, env, settings):
     assert result.status == "deferred"
     assert result.defer_seconds == 120
 
-    row = conn.execute(
-        "SELECT status, attempts, message FROM scrape_jobs WHERE id = ?", (job["id"],)
-    ).fetchone()
+    row = conn.execute("SELECT status, attempts, message FROM scrape_jobs WHERE id = ?", (job["id"],)).fetchone()
     assert row["status"] == "deferred"
     assert row["attempts"] == 0  # the claim's attempt was handed back
     assert "Rate limited" in row["message"]
 
-    account = conn.execute(
-        "SELECT status, scrape_enabled FROM accounts WHERE id = ?", (account_id,)
-    ).fetchone()
+    account = conn.execute("SELECT status, scrape_enabled FROM accounts WHERE id = ?", (account_id,)).fetchone()
     assert account["status"] == "active"
     assert account["scrape_enabled"] == 1
 
@@ -359,9 +332,7 @@ def test_fallback_chain_moves_past_a_stub_adapter(conn, env, settings):
         def open_stream(self, item):
             raise AdapterUnavailableError("not implemented")
 
-    result = SyncEngine(conn, env, settings, [BrokenAdapter(), FixtureAdapter()]).run(
-        queue_job(conn, account_id)
-    )
+    result = SyncEngine(conn, env, settings, [BrokenAdapter(), FixtureAdapter()]).run(queue_job(conn, account_id))
 
     assert result.status == "succeeded"
     assert result.downloaded == 2
@@ -385,10 +356,7 @@ def test_partial_downloads_are_never_left_in_the_archive(conn, env, settings):
 
     assert list((env.archive_root / "alpha").rglob("*.jpg")) == []
     assert list((env.archive_root / "alpha").rglob("*.part")) == []
-    assert (
-        conn.execute("SELECT COUNT(*) FROM media_files WHERE account_id = ?", (account_id,)).fetchone()[0]
-        == 0
-    )
+    assert conn.execute("SELECT COUNT(*) FROM media_files WHERE account_id = ?", (account_id,)).fetchone()[0] == 0
 
     (env.archive_root / "alpha" / "photos" / "orphan.jpg.part").write_bytes(b"leftover")
     assert cleanup_partials(env.archive_root) == 1

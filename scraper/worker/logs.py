@@ -35,9 +35,7 @@ _STDERR_LEVELS = {
 
 def fingerprint(account_id: int | None, event: str, error_type: str | None, message: str) -> str:
     normalised = _VOLATILE.sub("#", message.lower())[:200]
-    return hashlib.sha256(f"{account_id or 0}|{event}|{error_type or ''}|{normalised}".encode()).hexdigest()[
-        :32
-    ]
+    return hashlib.sha256(f"{account_id or 0}|{event}|{error_type or ''}|{normalised}".encode()).hexdigest()[:32]
 
 
 def log_event(

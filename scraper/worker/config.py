@@ -38,9 +38,7 @@ def _csv(env: str) -> list[str]:
 class WorkerEnv:
     db_path: Path = field(default_factory=lambda: _path("ARCHIVE_DB_PATH", REPO_ROOT / "data" / "archive.db"))
     archive_root: Path = field(default_factory=lambda: _path("ARCHIVE_ROOT", REPO_ROOT / "archive"))
-    migrations_dir: Path = field(
-        default_factory=lambda: _path("MIGRATIONS_DIR", REPO_ROOT / "db" / "migrations")
-    )
+    migrations_dir: Path = field(default_factory=lambda: _path("MIGRATIONS_DIR", REPO_ROOT / "db" / "migrations"))
 
     # Every field uses default_factory so the environment is read when a
     # WorkerEnv is constructed, not when this module is imported. A plain
@@ -56,9 +54,7 @@ class WorkerEnv:
         default_factory=lambda: os.getenv("WORKER_ID") or f"{socket.gethostname()}-{uuid.uuid4().hex[:6]}"
     )
 
-    poll_interval_seconds: float = field(
-        default_factory=lambda: float(os.getenv("POLL_INTERVAL_SECONDS", "10"))
-    )
+    poll_interval_seconds: float = field(default_factory=lambda: float(os.getenv("POLL_INTERVAL_SECONDS", "10")))
     heartbeat_interval_seconds: float = field(
         default_factory=lambda: float(os.getenv("HEARTBEAT_INTERVAL_SECONDS", "30"))
     )
@@ -71,12 +67,8 @@ class WorkerEnv:
     proxies: list[str] = field(default_factory=lambda: _csv("SCRAPER_PROXIES"))
     cookie_dir: Path = field(default_factory=lambda: _path("COOKIE_DIR", REPO_ROOT / "data" / "cookies"))
 
-    request_timeout_seconds: float = field(
-        default_factory=lambda: float(os.getenv("REQUEST_TIMEOUT_SECONDS", "45"))
-    )
-    dry_run: bool = field(
-        default_factory=lambda: os.getenv("SCRAPER_DRY_RUN", "").lower() in {"1", "true", "yes"}
-    )
+    request_timeout_seconds: float = field(default_factory=lambda: float(os.getenv("REQUEST_TIMEOUT_SECONDS", "45")))
+    dry_run: bool = field(default_factory=lambda: os.getenv("SCRAPER_DRY_RUN", "").lower() in {"1", "true", "yes"})
 
     def account_dir(self, name: str, archive_path: str | None = None) -> Path:
         return self.archive_root / (archive_path or name)

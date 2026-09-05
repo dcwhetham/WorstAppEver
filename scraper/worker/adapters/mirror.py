@@ -78,9 +78,7 @@ class MirrorAdapter:
         return None
 
     def probe(self, handle: str, links: list[dict[str, Any]]) -> ProfileInfo:
-        raise AdapterUnavailableError(
-            f"{self.name} adapter is a stub: implement probe() to enable this source"
-        )
+        raise AdapterUnavailableError(f"{self.name} adapter is a stub: implement probe() to enable this source")
 
     def list_items(
         self,
@@ -90,9 +88,7 @@ class MirrorAdapter:
         max_items: int | None = None,
         since: str | None = None,
     ) -> Iterator[RemoteItem]:
-        raise AdapterUnavailableError(
-            f"{self.name} adapter is a stub: implement list_items() to enable this source"
-        )
+        raise AdapterUnavailableError(f"{self.name} adapter is a stub: implement list_items() to enable this source")
         yield  # pragma: no cover - keeps this a generator for type checkers
 
     @contextmanager

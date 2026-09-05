@@ -20,9 +20,7 @@ def test_scan_discovers_accounts_and_classifies_media(conn, env):
     assert report.accounts_created == 2
     assert report.files_added == 4
 
-    row = conn.execute(
-        "SELECT image_count, video_count, total_bytes FROM accounts WHERE name = 'alpha'"
-    ).fetchone()
+    row = conn.execute("SELECT image_count, video_count, total_bytes FROM accounts WHERE name = 'alpha'").fetchone()
     assert (row["image_count"], row["video_count"]) == (2, 1)
     assert row["total_bytes"] == len(b"image-one") + len(b"image-two") + len(b"video-bytes")
 

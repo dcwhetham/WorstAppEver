@@ -230,9 +230,7 @@ class SyncEngine:
             item = _row_to_item(row)
             started = time.monotonic()
             try:
-                outcome = self._process_item(
-                    job, account_id, handle, item, adapter, hashes, indexed_remote_ids
-                )
+                outcome = self._process_item(job, account_id, handle, item, adapter, hashes, indexed_remote_ids)
             except RateLimitedError as exc:
                 # No follow-up job needed: `defer_job` reschedules *this* row, and
                 # the untouched `remote_index` rows are still the work list.
@@ -304,8 +302,7 @@ class SyncEngine:
         if result.remaining:
             result.requeue_after_seconds = plan.requeue_delay_seconds
             result.notes.append(
-                f"{result.remaining} item(s) deferred to a later run "
-                f"(~{plan.requeue_delay_seconds / 60:.0f} min)"
+                f"{result.remaining} item(s) deferred to a later run (~{plan.requeue_delay_seconds / 60:.0f} min)"
             )
 
         result.message = (
@@ -319,9 +316,7 @@ class SyncEngine:
     # Discovery
     # ------------------------------------------------------------------
 
-    def _discover(
-        self, job: sqlite3.Row, handle: str, links: list[dict[str, Any]]
-    ) -> tuple[int, SourceAdapter | None]:
+    def _discover(self, job: sqlite3.Row, handle: str, links: list[dict[str, Any]]) -> tuple[int, SourceAdapter | None]:
         """Refresh `remote_index`, walking the fallback chain until one works.
 
         Adapter-specific failures (unimplemented, missing cookies) move to the
@@ -388,9 +383,7 @@ class SyncEngine:
             )
         return 0, None
 
-    def _ingest_items(
-        self, job: sqlite3.Row, adapter: SourceAdapter, handle: str, links: list[dict[str, Any]]
-    ) -> int:
+    def _ingest_items(self, job: sqlite3.Row, adapter: SourceAdapter, handle: str, links: list[dict[str, Any]]) -> int:
         """Upsert listed items into `remote_index`, stopping early once known.
 
         The early exit is what makes routine syncs cheap: with newest-first
@@ -515,14 +508,10 @@ class SyncEngine:
         if target.is_file() and target.stat().st_size > 0:
             local_hash = sha256_file(target)
             if local_hash in hashes:
-                self._index_media(
-                    account_id, handle, job["archive_path"], target, item, local_hash, downloaded=False
-                )
+                self._index_media(account_id, handle, job["archive_path"], target, item, local_hash, downloaded=False)
                 self._mark_remote(item, account_id, "duplicate", note="present on disk")
                 return "adopted"
-            self._index_media(
-                account_id, handle, job["archive_path"], target, item, local_hash, downloaded=False
-            )
+            self._index_media(account_id, handle, job["archive_path"], target, item, local_hash, downloaded=False)
             hashes.add(local_hash)
             indexed_remote_ids.add((item.provider, item.remote_id))
             self._mark_remote(item, account_id, "downloaded", note="adopted existing file")
@@ -555,9 +544,7 @@ class SyncEngine:
             partial.unlink(missing_ok=True)
             raise
 
-        self._index_media(
-            account_id, handle, job["archive_path"], target, item, content_hash, downloaded=True
-        )
+        self._index_media(account_id, handle, job["archive_path"], target, item, content_hash, downloaded=True)
         hashes.add(content_hash)
         indexed_remote_ids.add((item.provider, item.remote_id))
         self._mark_remote(item, account_id, "downloaded")
@@ -790,9 +777,7 @@ class SyncEngine:
     # Failure paths
     # ------------------------------------------------------------------
 
-    def _rate_limited(
-        self, job: sqlite3.Row, exc: RateLimitedError, partial: SyncResult | None = None
-    ) -> SyncResult:
+    def _rate_limited(self, job: sqlite3.Row, exc: RateLimitedError, partial: SyncResult | None = None) -> SyncResult:
         """Honour a 429. Deferred, not failed: nothing is wrong with the account."""
         result = partial or SyncResult()
         wait = exc.retry_after or self.settings.rate_limit_backoff_ms / 1000.0

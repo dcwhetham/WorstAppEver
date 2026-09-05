@@ -75,10 +75,7 @@ def test_toggles_flip_without_a_body(client):
     assert client.post(f"/api/accounts/{account_id}/favorite").json()["is_favorite"] is False
     assert client.post(f"/api/accounts/{account_id}/scrape-toggle").json()["scrape_enabled"] is False
     assert (
-        client.post(f"/api/accounts/{account_id}/scrape-toggle", json={"value": True}).json()[
-            "scrape_enabled"
-        ]
-        is True
+        client.post(f"/api/accounts/{account_id}/scrape-toggle", json={"value": True}).json()["scrape_enabled"] is True
     )
 
 
@@ -106,9 +103,7 @@ def test_manual_links_can_be_added_and_removed(client):
     assert created["provider"] == "imginn"
 
     assert (
-        client.post(
-            f"/api/accounts/{account_id}/links", json={"url": "https://imginn.com/alpha.backup/"}
-        ).status_code
+        client.post(f"/api/accounts/{account_id}/links", json={"url": "https://imginn.com/alpha.backup/"}).status_code
         == 409
     )
 
@@ -198,8 +193,7 @@ def test_bundle_of_empty_account_is_404(client):
 
 def test_batch_run_staggers_and_batch_update_applies(client):
     ids = [
-        client.post("/api/accounts", json={"name": f"acct{i}", "scrape_enabled": False}).json()["id"]
-        for i in range(3)
+        client.post("/api/accounts", json={"name": f"acct{i}", "scrape_enabled": False}).json()["id"] for i in range(3)
     ]
 
     result = client.post("/api/batch/run", json={"account_ids": ids}).json()
@@ -208,9 +202,7 @@ def test_batch_run_staggers_and_batch_update_applies(client):
     # Staggered rather than simultaneous, so a bulk scrape is not a traffic spike.
     assert len(set(scheduled)) == 3
 
-    updated = client.patch(
-        "/api/batch/accounts", json={"account_ids": ids, "patch": {"is_favorite": True}}
-    ).json()
+    updated = client.patch("/api/batch/accounts", json={"account_ids": ids, "patch": {"is_favorite": True}}).json()
     assert updated["updated"] == 3
     assert all(card["is_favorite"] for card in client.get("/api/accounts").json())
 
@@ -224,9 +216,7 @@ def test_logs_expose_scanner_and_account_events(client, env):
     assert {"account_discovered", "scan_complete"} <= events
 
     scan_entry = next(
-        e
-        for e in client.get("/api/logs", params={"source": "scanner"}).json()
-        if e["event"] == "scan_complete"
+        e for e in client.get("/api/logs", params={"source": "scanner"}).json() if e["event"] == "scan_complete"
     )
     assert scan_entry["detail"]["files_added"] == 1
 
@@ -235,9 +225,7 @@ def test_log_level_filter_is_a_floor(client, conn):
     from app.logs import log_event
 
     account_id = client.post("/api/accounts", json={"name": "alpha"}).json()["id"]
-    log_event(
-        conn, level="warn", source="scraper", event="rate_limited", message="429", account_id=account_id
-    )
+    log_event(conn, level="warn", source="scraper", event="rate_limited", message="429", account_id=account_id)
     log_event(conn, level="error", source="scraper", event="blocked", message="403", account_id=account_id)
     log_event(conn, level="debug", source="scraper", event="noise", message="chatter", account_id=account_id)
 
@@ -270,9 +258,7 @@ def test_successful_job_clears_the_error_badge(client, conn):
     from app.logs import log_event
 
     account_id = client.post("/api/accounts", json={"name": "alpha", "scrape_enabled": False}).json()["id"]
-    log_event(
-        conn, level="error", source="scraper", event="adapter_failed", message="boom", account_id=account_id
-    )
+    log_event(conn, level="error", source="scraper", event="adapter_failed", message="boom", account_id=account_id)
     assert client.get(f"/api/accounts/{account_id}").json()["unresolved_error_count"] == 1
 
     job_id = client.post(f"/api/accounts/{account_id}/run").json()["job_id"]

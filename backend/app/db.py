@@ -149,9 +149,7 @@ if __name__ == "__main__":  # pragma: no cover - operator entrypoint
         print(f"database: {cfg.db_path}")
         print("up to date" if not changed else f"applied: {', '.join(changed)}")
     elif command == "seed":
-        target = (
-            Path(sys.argv[2]) if len(sys.argv) > 2 else cfg.migrations_dir.parent / "seed" / "demo_seed.sql"
-        )
+        target = Path(sys.argv[2]) if len(sys.argv) > 2 else cfg.migrations_dir.parent / "seed" / "demo_seed.sql"
         migrate(cfg)
         seed(target, cfg)
         print(f"seeded from {target}")
