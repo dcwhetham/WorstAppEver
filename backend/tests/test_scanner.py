@@ -72,6 +72,87 @@ def test_identical_files_do_not_both_claim_the_dedup_slot(conn, env):
     hashed = conn.execute("SELECT COUNT(*) FROM media_files WHERE content_hash IS NOT NULL").fetchone()[0]
     assert hashed == 1
 
+    # The loser must point back at the row that kept the hash. A NULL hash with no
+    # back reference is indistinguishable from a not-yet-hashed file, which would
+    # make the duplicate permanently invisible to the report.
+    #
+    # The keeper is whichever the walk reached first, and the walk is sorted by
+    # path, so it is copy.jpg rather than one.jpg.
+    rows = {row["filename"]: row for row in conn.execute("SELECT * FROM media_files")}
+    assert rows["copy.jpg"]["content_hash"] is not None
+    assert rows["copy.jpg"]["duplicate_of"] is None
+    assert rows["one.jpg"]["content_hash"] is None
+    assert rows["one.jpg"]["duplicate_of"] == rows["copy.jpg"]["id"]
+
+
+def test_duplicate_report_surfaces_same_account_copies(conn, env):
+    """A duplicate the scan counted has to be one the UI can actually show.
+
+    The copy's hash is NULL by design, so the report has to resolve it through
+    `duplicate_of` — otherwise `duplicates_found: 1` is a number the user can
+    never act on.
+    """
+    from app.repositories import media as media_repo
+    from app.scanner import scan_archive
+
+    write_media(env.archive_root, "alpha", "photos", "one.jpg", b"same-bytes")
+    write_media(env.archive_root, "alpha", "photos", "copy.jpg", b"same-bytes")
+    write_media(env.archive_root, "alpha", "photos", "other.jpg", b"different")
+    scan_archive(conn=conn, settings=env)
+
+    groups = media_repo.duplicate_report(conn)
+
+    assert len(groups) == 1
+    group = groups[0]
+    assert group["copies"] == 2
+    assert group["accounts"] == 1
+    assert group["same_account_copies"] == 1
+    assert {m["rel_path"] for m in group["members"]} == {"photos/one.jpg", "photos/copy.jpg"}
+    # Exactly one member is the keeper, and it is listed first so the UI can offer
+    # "prune the rest" without deciding which to keep itself.
+    assert [m["is_duplicate"] for m in group["members"]] == [False, True]
+    assert group["members"][0]["rel_path"] == "photos/copy.jpg"  # scanned first
+
+
+def test_duplicate_report_spans_accounts(conn, env):
+    """Cross-account copies group through the same path as same-account ones."""
+    from app.repositories import media as media_repo
+    from app.scanner import scan_archive
+
+    write_media(env.archive_root, "alpha", "photos", "shared.jpg", b"shared-bytes")
+    write_media(env.archive_root, "beta", "photos", "shared.jpg", b"shared-bytes")
+    report = scan_archive(conn=conn, settings=env)
+
+    # Different accounts, so the unique index never fires: both keep their hash.
+    assert report.duplicates_found == 0
+
+    groups = media_repo.duplicate_report(conn)
+    assert len(groups) == 1
+    assert groups[0]["accounts"] == 2
+    assert groups[0]["same_account_copies"] == 0
+
+
+def test_file_edited_into_a_duplicate_does_not_abort_the_scan(conn, env):
+    """An existing file whose contents change to match another is demoted.
+
+    This goes through the UPDATE path rather than the INSERT path, where an
+    unhandled IntegrityError would take down the whole scan partway through.
+    """
+    from app.scanner import scan_archive
+
+    write_media(env.archive_root, "alpha", "photos", "one.jpg", b"first-bytes")
+    later = write_media(env.archive_root, "alpha", "photos", "two.jpg", b"second-bytes")
+    scan_archive(conn=conn, settings=env)
+
+    later.write_bytes(b"first-bytes")
+    report = scan_archive(conn=conn, settings=env)
+
+    assert report.errors == []
+    assert report.duplicates_found == 1
+    row = conn.execute("SELECT content_hash, duplicate_of FROM media_files WHERE filename='two.jpg'").fetchone()
+    assert row["content_hash"] is None
+    assert row["duplicate_of"] is not None
+
 
 def test_missing_file_is_tombstoned_not_deleted(conn, env):
     """A deleted file keeps its row so the scraper will not re-download it."""

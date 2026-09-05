@@ -181,6 +181,9 @@ CREATE UNIQUE INDEX idx_media_hash_unique
 
 The database refuses to hold the same bytes twice for one account regardless of
 which code path inserts them, so a bug in the scraper cannot produce duplicates.
+When it fires during a local scan the second file is still indexed — it exists,
+and hiding it would be a lie — with a NULL hash and `duplicate_of` pointing at the
+row that kept it, which is what keeps it findable in the duplicates report.
 
 **Deletes are soft.** A file you delete from disk becomes `is_missing = 1` rather
 than a removed row, and the scraper reads that as "the user got rid of this

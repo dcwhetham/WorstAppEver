@@ -103,27 +103,87 @@ def soft_delete(conn: sqlite3.Connection, media_id: int) -> bool:
     return cursor.rowcount > 0
 
 
-def duplicate_report(conn: sqlite3.Connection, limit: int = 100) -> list[dict[str, Any]]:
-    """Identical bytes held under more than one account.
+# Groups of live files holding identical bytes.
+#
+# The `effective_hash` is the point of this query. An in-account duplicate is
+# stored with `content_hash = NULL` so it cannot claim the unique dedup slot, and
+# points at the row that did via `duplicate_of`. Resolving through that reference
+# recovers its hash, which is what lets same-account and cross-account duplicates
+# group through one code path instead of two queries that have to be merged.
+#
+# Without it, the copies the scanner deliberately NULLed would be invisible here —
+# a scan could report "1 duplicate found" while this endpoint returned nothing.
+_LIVE_HASHED = """
+    SELECT m.id,
+           m.account_id,
+           m.rel_path,
+           m.bytes,
+           COALESCE(m.content_hash, o.content_hash) AS effective_hash,
+           m.duplicate_of IS NOT NULL               AS is_duplicate
+      FROM media_files m
+      LEFT JOIN media_files o ON o.id = m.duplicate_of
+     WHERE m.deleted_at IS NULL
+       AND COALESCE(m.content_hash, o.content_hash) IS NOT NULL
+"""
 
-    Not automatically resolved: the same photo legitimately living in two
-    accounts' folders is usually correct, and hardlinking or pruning is a
-    decision for the user.
+
+def duplicate_report(conn: sqlite3.Connection, limit: int = 100) -> list[dict[str, Any]]:
+    """Groups of files holding identical bytes, within or across accounts.
+
+    Reported, never auto-resolved. The same photo legitimately living in two
+    accounts' folders is usually correct, and within one account the user may have
+    kept a copy on purpose — hardlinking, pruning or leaving it alone is their
+    call. Each group carries its members so the UI can offer that choice against
+    a specific file rather than a hash.
     """
-    rows = conn.execute(
-        """
-        SELECT content_hash,
-               COUNT(*)                AS copies,
-               COUNT(DISTINCT account_id) AS accounts,
-               MIN(bytes)              AS bytes,
-               GROUP_CONCAT(DISTINCT account_id) AS account_ids
-          FROM media_files
-         WHERE content_hash IS NOT NULL AND deleted_at IS NULL
-         GROUP BY content_hash
+    groups = conn.execute(
+        f"""
+        WITH live AS ({_LIVE_HASHED})
+        SELECT effective_hash               AS content_hash,
+               COUNT(*)                     AS copies,
+               COUNT(DISTINCT account_id)   AS accounts,
+               MIN(bytes)                   AS bytes,
+               SUM(is_duplicate)            AS same_account_copies
+          FROM live
+         GROUP BY effective_hash
         HAVING COUNT(*) > 1
          ORDER BY copies DESC, bytes DESC
          LIMIT ?
         """,
         (limit,),
     ).fetchall()
-    return [dict(row) for row in rows]
+    if not groups:
+        return []
+
+    hashes = [row["content_hash"] for row in groups]
+    placeholders = ",".join("?" * len(hashes))
+    members: dict[str, list[dict[str, Any]]] = {h: [] for h in hashes}
+    for row in conn.execute(
+        f"""
+        WITH live AS ({_LIVE_HASHED})
+        SELECT id, account_id, rel_path, bytes, effective_hash, is_duplicate
+          FROM live
+         WHERE effective_hash IN ({placeholders})
+         ORDER BY account_id, is_duplicate, rel_path
+        """,
+        hashes,
+    ):
+        members[row["effective_hash"]].append(
+            {
+                "media_id": row["id"],
+                "account_id": row["account_id"],
+                "rel_path": row["rel_path"],
+                "bytes": row["bytes"],
+                # False marks the copy holding the hash — the one to keep if the
+                # user prunes the rest.
+                "is_duplicate": bool(row["is_duplicate"]),
+            }
+        )
+
+    out = []
+    for row in groups:
+        group = dict(row)
+        group["same_account_copies"] = int(group["same_account_copies"] or 0)
+        group["members"] = members[row["content_hash"]]
+        out.append(group)
+    return out

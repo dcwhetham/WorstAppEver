@@ -73,10 +73,11 @@ def get_raw_media(conn: Conn, media_id: int, request: Request, download: bool = 
 
 @router.get("/media/duplicates")
 def list_duplicates(conn: Conn, limit: int = Query(100, ge=1, le=1000)) -> dict[str, Any]:
-    """Groups of identical bytes across the archive.
+    """Groups of identical bytes in the archive, within or across accounts.
 
     Reported, never auto-resolved: the same image held by two accounts is
-    usually intentional, and pruning is the user's call.
+    usually intentional, and pruning is the user's call. Each group lists its
+    members so that call can be made against a file.
     """
     return {"groups": media_repo.duplicate_report(conn, limit)}
 

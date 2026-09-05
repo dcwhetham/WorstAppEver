@@ -162,7 +162,18 @@ CREATE TABLE IF NOT EXISTS media_files (
     -- scraper does not re-download something the user deliberately deleted
     -- until they explicitly purge it.
     is_missing       INTEGER NOT NULL DEFAULT 0 CHECK (is_missing IN (0, 1)),
-    deleted_at       TEXT
+    deleted_at       TEXT,
+
+    -- A second file in this account holding byte-identical content. The row
+    -- keeps `content_hash` NULL so it cannot claim the dedup slot below, and
+    -- points here instead.
+    --
+    -- Without this the duplicate would be indexed with no hash and no back
+    -- reference, which makes it permanently invisible to the duplicates report:
+    -- a scan could truthfully say "1 duplicate found" while the UI had no way to
+    -- show which file it meant. ON DELETE SET NULL because purging the original
+    -- promotes this copy to being the only one, not an orphan.
+    duplicate_of     INTEGER REFERENCES media_files (id) ON DELETE SET NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_account_path
@@ -172,6 +183,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_media_account_path
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_account_hash
     ON media_files (account_id, content_hash)
     WHERE content_hash IS NOT NULL AND deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_media_duplicate_of
+    ON media_files (duplicate_of)
+    WHERE duplicate_of IS NOT NULL;
 
 -- Cross-account lookups: "do we already have these bytes anywhere?"
 CREATE INDEX IF NOT EXISTS idx_media_hash        ON media_files (content_hash)

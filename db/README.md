@@ -55,6 +55,15 @@ unique index on `(account_id, content_hash)` for live rows. A downloader bug
 that tries to write a duplicate gets an `IntegrityError` instead of quietly
 doubling the archive.
 
+**Rejected duplicates keep a back reference.** When that index fires during a
+local scan — two files in one folder with identical bytes — the second row is
+still indexed, because the file exists and hiding it from the UI would be a lie.
+It stores `content_hash = NULL` so it cannot claim the dedup slot, and
+`duplicate_of` pointing at the row that did. That column is what makes the copy
+findable: a NULL hash on its own is indistinguishable from a file that has not
+been hashed yet, so without it a scan could report "1 duplicate found" while
+`/api/media/duplicates` returned nothing.
+
 **Soft deletes are load-bearing.** A file the user deletes keeps its
 `media_files` row with `deleted_at` set, so the scraper does not helpfully
 re-download it on the next pass.

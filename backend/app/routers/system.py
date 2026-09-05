@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Body, HTTPException
 
 from ..config import get_settings
 from ..db import connect, transaction
@@ -94,12 +94,18 @@ def _run_scan(account_id: int | None, rehash: bool) -> None:
 
 
 @router.post("/scan", status_code=202)
-def trigger_scan(payload: ScanRequest, background: BackgroundTasks) -> dict[str, Any]:
+def trigger_scan(
+    background: BackgroundTasks,
+    payload: Annotated[ScanRequest, Body(default_factory=ScanRequest)],
+) -> dict[str, Any]:
     """Reconcile `/archive` with the index.
 
     Runs in the background: hashing a large archive takes minutes and would blow
     any sensible HTTP timeout. Progress lands in `event_log`, so the UI follows
     it through the same log viewer as everything else.
+
+    Every field of the body is optional, so the body is too — "scan everything"
+    is the obvious default and should not require a JSON payload to say so.
     """
     background.add_task(_run_scan, payload.account_id, payload.rehash)
     return {
@@ -111,7 +117,10 @@ def trigger_scan(payload: ScanRequest, background: BackgroundTasks) -> dict[str,
 
 
 @router.post("/scan/sync")
-def trigger_scan_sync(payload: ScanRequest, conn: Conn) -> dict[str, Any]:
+def trigger_scan_sync(
+    conn: Conn,
+    payload: Annotated[ScanRequest, Body(default_factory=ScanRequest)],
+) -> dict[str, Any]:
     """Blocking scan, for scripts and tests that need the report back."""
     report = scan_archive(conn=conn, account_id=payload.account_id, rehash=payload.rehash)
     return report.as_dict()
