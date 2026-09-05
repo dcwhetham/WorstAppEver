@@ -240,6 +240,13 @@ def enqueue_followup(
 
 
 def reap_expired_leases(conn: sqlite3.Connection) -> int:
+    """Reclaim jobs whose worker died.
+
+    A live job with no lease is reclaimed immediately. The schema forbids that
+    state, but skipping it would leave the account wedged forever with nothing
+    able to recover it, and claiming sets status and lease in one statement so
+    this cannot race a worker that just claimed.
+    """
     with transaction(conn):
         cursor = conn.execute(
             """
@@ -249,8 +256,7 @@ def reap_expired_leases(conn: sqlite3.Connection) -> int:
                    error_summary = COALESCE(error_summary, 'Worker lease expired; job reclaimed'),
                    finished_at = CASE WHEN attempts >= max_attempts THEN ? ELSE NULL END
              WHERE status IN ('claimed', 'running')
-               AND lease_expires_at IS NOT NULL
-               AND lease_expires_at < ?
+               AND (lease_expires_at IS NULL OR lease_expires_at < ?)
             """,
             (now_iso(), now_iso()),
         )

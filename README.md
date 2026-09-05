@@ -207,7 +207,11 @@ CREATE UNIQUE INDEX idx_jobs_one_active
     WHERE status IN ('queued', 'claimed', 'running');
 ```
 
-Two workers claiming the same account is a schema violation, not a race.
+Two workers claiming the same account is a schema violation, not a race. A second
+`CHECK` requires a live job to carry a lease, because a claimed row with no expiry
+is invisible to the reaper and closed to every future worker by that same index —
+it would wedge its account permanently, which is the exact failure the lease was
+introduced to prevent.
 
 ---
 

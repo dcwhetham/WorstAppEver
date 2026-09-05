@@ -234,6 +234,12 @@ def reap_expired_leases(conn: sqlite3.Connection) -> int:
 
     A killed container leaves a job in `running` with an expired lease. Without
     reaping, `idx_jobs_one_active` would block that account forever.
+
+    A live job with no lease at all is reclaimed immediately rather than skipped.
+    The schema forbids that state, but skipping it would mean any row that reached
+    it — by a hand-written fix, a bad seed, or a future migration — wedges its
+    account permanently with nothing able to recover it. Claiming sets status and
+    lease in a single statement, so this cannot race a worker that just claimed.
     """
     cursor = conn.execute(
         """
@@ -245,8 +251,7 @@ def reap_expired_leases(conn: sqlite3.Connection) -> int:
                error_summary = COALESCE(error_summary, 'Worker lease expired; job reclaimed'),
                finished_at = CASE WHEN attempts >= max_attempts THEN ? ELSE NULL END
          WHERE status IN ('claimed', 'running')
-           AND lease_expires_at IS NOT NULL
-           AND lease_expires_at < ?
+           AND (lease_expires_at IS NULL OR lease_expires_at < ?)
         """,
         (utc_now_iso(), utc_now_iso()),
     )

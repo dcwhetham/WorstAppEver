@@ -38,14 +38,23 @@ SELECT id, 'custom', 'manual', 'https://imginn.com/aurora.films.backup/', 'Backu
 FROM accounts WHERE name = 'aurora.films';
 
 -- A first-sync account with a live job, so the ETA timer has something to show.
+--
+-- The lease is required, not decorative: the schema rejects a claimed or running
+-- job without one, because such a row is invisible to the reaper and blocked by
+-- `idx_jobs_one_active`, which would wedge this account permanently. Setting it in
+-- the past means a real worker reclaims this demo job on its first pass instead of
+-- the seed quietly blocking the account it is meant to showcase.
 INSERT INTO scrape_jobs
     (account_id, job_type, status, trigger, priority, phase, message,
      items_expected, items_discovered, items_downloaded, items_skipped,
-     bytes_downloaded, eta_seconds, pace_delay_ms, started_at, claimed_by)
+     bytes_downloaded, eta_seconds, pace_delay_ms, started_at, claimed_by,
+     claimed_at, lease_expires_at)
 SELECT id, 'sync', 'running', 'schedule', 50, 'download',
        'Paced first sync: 14 of 96 items',
        96, 96, 14, 3, 48219004, 1180, 9500,
-       strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-6 minutes'), 'scraper-demo'
+       strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-6 minutes'), 'scraper-demo',
+       strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-6 minutes'),
+       strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 minute')
 FROM accounts WHERE name = 'vantablack.co';
 
 INSERT INTO scrape_jobs (account_id, job_type, status, trigger, priority, scheduled_for)

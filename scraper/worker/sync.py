@@ -133,6 +133,7 @@ class SyncEngine:
         if not links:
             result.status = "failed"
             result.error_summary = "no source links configured for this account"
+            result.message = "No enabled source links; add one from the account view"
             log_event(
                 self.conn,
                 level="error",
@@ -161,6 +162,10 @@ class SyncEngine:
         if adapter is None:
             result.status = "failed"
             result.error_summary = "every adapter in the fallback chain failed"
+            # Terminal results always carry a message: it is what the log viewer
+            # renders, and the whole point of that modal is not having to read
+            # container logs to find out why an account stopped updating.
+            result.message = f"All {len(links)} source(s) failed; see the log for the last error"
             return result
 
         # ---------------- plan ----------------
@@ -257,6 +262,7 @@ class SyncEngine:
                 # Stop the run rather than failing every remaining item in turn.
                 result.status = "failed"
                 result.error_summary = f"filesystem error: {exc}"
+                result.message = f"Filesystem error after {result.downloaded} downloads; run aborted"
                 log_event(
                     self.conn,
                     level="critical",

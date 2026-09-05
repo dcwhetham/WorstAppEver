@@ -294,3 +294,56 @@ def test_deleting_an_account_never_touches_the_files(client, env):
     assert client.delete(f"/api/accounts/{account['id']}").status_code == 204
     assert client.get("/api/accounts").json() == []
     assert (env.archive_root / "alpha" / "photos" / "one.jpg").is_file()
+
+
+def test_live_job_requires_a_lease(conn, client):
+    """A claimed job with no lease is unrepresentable.
+
+    Such a row is invisible to the reaper, which needs an expiry to compare, and
+    blocked by `idx_jobs_one_active` for any future worker — so it would wedge the
+    account permanently, which is the exact failure the lease exists to prevent.
+    """
+    import sqlite3
+
+    import pytest
+
+    account = client.post("/api/accounts", json={"name": "alpha"}).json()
+
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            """
+            INSERT INTO scrape_jobs (account_id, job_type, status, claimed_by)
+            VALUES (?, 'verify', 'running', 'ghost')
+            """,
+            (account["id"],),
+        )
+
+
+def test_reaper_reclaims_a_live_job_with_no_lease(conn, client):
+    """Belt and braces for rows that predate the constraint or arrive by hand.
+
+    Skipping them would leave nothing in the system able to unblock the account.
+    """
+    from app.repositories import jobs as jobs_repo
+
+    account = client.post("/api/accounts", json={"name": "alpha"}).json()
+    # A lease far in the future, so an expiry-only reaper would leave this alone
+    # and the assertion below would only pass if the NULL case is handled.
+    conn.execute(
+        """
+        UPDATE scrape_jobs SET status = 'running', claimed_by = 'ghost',
+               lease_expires_at = '2099-01-01T00:00:00.000Z' WHERE account_id = ?
+        """,
+        (account["id"],),
+    )
+    # Drop the lease behind the constraint's back, simulating such a row existing.
+    conn.execute("PRAGMA ignore_check_constraints = ON")
+    conn.execute("UPDATE scrape_jobs SET lease_expires_at = NULL WHERE account_id = ?", (account["id"],))
+    conn.execute("PRAGMA ignore_check_constraints = OFF")
+    assert conn.execute("SELECT lease_expires_at FROM scrape_jobs").fetchone()[0] is None
+
+    assert jobs_repo.reap_expired_leases(conn) == 1
+
+    row = conn.execute("SELECT status, claimed_by FROM scrape_jobs WHERE account_id = ?", (account["id"],)).fetchone()
+    assert row["status"] == "queued"
+    assert row["claimed_by"] is None

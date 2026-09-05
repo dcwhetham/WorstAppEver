@@ -283,7 +283,17 @@ CREATE TABLE IF NOT EXISTS scrape_jobs (
     error_summary     TEXT,
 
     created_at        TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-    updated_at        TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    updated_at        TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+
+    -- A claimed or running job must carry a lease.
+    --
+    -- This is the constraint that makes the reaper's guarantee real. Together
+    -- with `idx_jobs_one_active`, a live job with no lease is unreachable by both
+    -- the reaper (which needs an expiry to compare) and any future worker (which
+    -- the unique index blocks), so the account would be wedged permanently — the
+    -- exact failure the lease exists to prevent. Claiming sets status and lease in
+    -- one statement, so nothing legitimate trips this.
+    CHECK (status NOT IN ('claimed', 'running') OR lease_expires_at IS NOT NULL)
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_claimable

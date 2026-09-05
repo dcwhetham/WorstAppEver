@@ -75,6 +75,14 @@ be quadratic, so `0002_triggers.sql` applies `+1` / `-1` adjustments instead.
 **One live job per account per type.** `idx_jobs_one_active` is a partial
 unique index, so mashing "Run Now" cannot stack overlapping syncs.
 
+**A live job must carry a lease.** `CHECK (status NOT IN ('claimed', 'running')
+OR lease_expires_at IS NOT NULL)`. This is what makes the reaper's guarantee
+real. A claimed row with no expiry is invisible to the reaper, which has nothing
+to compare, and closed to every future worker by the unique index above — so it
+wedges its account permanently, which is precisely the failure the lease was
+introduced to prevent. Claiming sets status and lease in one statement, so nothing
+legitimate trips this.
+
 ## Concurrency
 
 Two processes share one file, so both open it with:

@@ -408,3 +408,29 @@ def test_discovery_stops_early_once_history_is_known(conn, env, settings):
     second = run_sync(conn, env, settings, queue_job(conn, account_id))
     # Listing stops after a streak of already-known items rather than walking all 40.
     assert second.discovered <= KNOWN_STREAK_LIMIT + 1
+
+
+def test_every_source_failing_still_reports_a_message(conn, env, settings):
+    """A terminal result with no message renders as a blank row in the log viewer.
+
+    That modal exists so nobody has to read container logs to find out why an
+    account stopped updating, so an empty message defeats the feature. No fixture
+    folder is created here, which makes every adapter in the chain fail.
+    """
+    account_id = make_account(conn, "ghost", last_success="2026-01-01T00:00:00Z")
+
+    result = run_sync(conn, env, settings, queue_job(conn, account_id))
+
+    assert result.status == "failed"
+    assert result.message
+    assert result.error_summary
+
+
+def test_account_with_no_links_reports_a_message(conn, env, settings):
+    account_id = make_account(conn, "linkless", last_success="2026-01-01T00:00:00Z")
+    conn.execute("DELETE FROM account_links WHERE account_id = ?", (account_id,))
+
+    result = run_sync(conn, env, settings, queue_job(conn, account_id))
+
+    assert result.status == "failed"
+    assert result.message
