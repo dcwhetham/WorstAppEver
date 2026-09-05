@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+/*
+ * Palette follows the Kodi Aeon Tajo profile: near-black grounds, cool grey
+ * surfaces, and one saturated cyan that carries every accent.
+ *
+ * The surface ramp is deliberately narrow (#080a0e to #1b232f). On an OLED panel
+ * in a dark room, wide steps between dark greys read as blotches; keeping the
+ * steps tight lets elevation come from borders and glow instead of brightness.
+ * Cyan is the *only* saturated hue, so anything cyan is interactive or live.
+ */
+@theme {
+  --color-abyss: #05070a;
+  --color-void: #080b10;
+  --color-surface: #0e131a;
+  --color-surface-2: #141b24;
+  --color-surface-3: #1b232f;
+  --color-hairline: #202a37;
+  --color-hairline-bright: #2c3948;
+
+  --color-ink: #e8f0f9;
+  --color-ink-dim: #a3b2c4;
+  --color-ink-faint: #6d7f94;
+
+  --color-cyan: #22d3ee;
+  --color-cyan-bright: #67e8f9;
+  --color-cyan-deep: #0891b2;
+  --color-azure: #38bdf8;
+  --color-azure-deep: #0284c7;
+
+  --color-amber: #fbbf24;
+  --color-rose: #fb7185;
+  --color-mint: #34d399;
+  --color-violet: #a78bfa;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+
+  /* Perspective depth for the tilt cards. Shallower than the CSS default
+   * (which is effectively infinite); 1100px gives a visible lean without the
+   * fisheye distortion that shorter distances produce on wide cards. */
+  --perspective-card: 1100px;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-hairline);
+  }
+
+  html {
+    background: var(--color-abyss);
+    color-scheme: dark;
+  }
+
+  body {
+    background:
+      /* Two off-screen radial pools give the page a subtle top-corner glow
+       * without a visible gradient seam across the middle. */
+      radial-gradient(1200px 600px at 12% -8%, rgba(34, 211, 238, 0.07), transparent 60%),
+      radial-gradient(900px 500px at 95% 0%, rgba(56, 189, 248, 0.05), transparent 55%),
+      var(--color-abyss);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: rgba(34, 211, 238, 0.28);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-cyan);
+    outline-offset: 2px;
+  }
+
+  /* Dark scrollbars. A default light scrollbar against #05070a is the single
+   * most jarring detail in an otherwise deep-dark UI. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-hairline-bright) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-hairline-bright);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-faint);
+    background-clip: content-box;
+  }
+}
+
+@utility scene {
+  /* Establishes the 3D context the tilt cards rotate inside. Without a
+   * perspective on the *parent*, rotateX on the child is an orthographic
+   * squash with no sense of depth. */
+  perspective: var(--perspective-card);
+  perspective-origin: 50% 40%;
+}
+
+@utility preserve-3d {
+  transform-style: preserve-3d;
+}
+
+@utility glass {
+  background: color-mix(in oklab, var(--color-surface) 82%, transparent);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+
+@utility card-sheen {
+  /* Fixed diagonal sheen baked into the card surface. The pointer-tracked
+   * highlight is a separate layer applied in AccountCard. */
+  background-image: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.055) 0%,
+    rgba(255, 255, 255, 0.012) 34%,
+    transparent 62%
+  );
+}
+
+@utility text-glow-cyan {
+  text-shadow: 0 0 18px rgba(34, 211, 238, 0.45);
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.35);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(34, 211, 238, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0);
+  }
+}
+
+@utility pulse-ring {
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@utility shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+@utility shimmer-bar {
+  animation: shimmer 1.8s infinite;
+  background-image: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.14), transparent);
+}
+
+/*
+ * Accessibility: the tilt and expansion are decorative. Users who ask for
+ * reduced motion get the same layout with the movement removed, rather than a
+ * degraded second-class view.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
