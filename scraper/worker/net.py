@@ -177,24 +177,30 @@ class HttpClient:
         if status >= 400:
             raise AdapterError(f"{status} from {url}")
 
-    def get_text(self, url: str, **kwargs: Any) -> str:
+    def request(self, method: str, url: str, **kwargs: Any) -> str:
+        """Issue one request and return the body as text.
+
+        Used by the mirror adapters for both document GETs and the XHR
+        load-more calls, which are sometimes POST.
+        """
         client = self._ensure_client()
         try:
-            response = client.get(url, **kwargs)
+            response = client.request(method, url, **kwargs)
         except Exception as exc:  # httpx transport errors
             raise AdapterError(f"request to {url} failed: {exc}") from exc
         self._raise_for_status(response.status_code, url, dict(response.headers))
         return response.text
 
+    def get_text(self, url: str, **kwargs: Any) -> str:
+        return self.request("GET", url, **kwargs)
+
     def get_json(self, url: str, **kwargs: Any) -> Any:
-        client = self._ensure_client()
+        headers = {"Accept": "application/json", **(kwargs.pop("headers", None) or {})}
+        body = self.request("GET", url, headers=headers, **kwargs)
         try:
-            response = client.get(url, headers={"Accept": "application/json"}, **kwargs)
-        except Exception as exc:
-            raise AdapterError(f"request to {url} failed: {exc}") from exc
-        self._raise_for_status(response.status_code, url, dict(response.headers))
-        try:
-            return response.json()
+            import json
+
+            return json.loads(body)
         except ValueError as exc:
             raise AdapterError(f"{url} returned non-JSON body") from exc
 

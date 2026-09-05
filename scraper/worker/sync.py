@@ -166,9 +166,10 @@ class SyncEngine:
             # renders, and the whole point of that modal is not having to read
             # container logs to find out why an account stopped updating.
             result.message = (
-                f"All {len(links)} source(s) failed. The bundled Instagram/Imginn/Pixnoy "
-                "adapters are stubs until implemented — a job against a live handle will "
-                "not download anything until one of them is filled in. See the log."
+                f"All {len(links)} source(s) failed. Imginn and Pixnoy are often behind "
+                "Cloudflare — drop a Netscape cookies.txt in COOKIE_DIR/imginn.txt or "
+                "COOKIE_DIR/pixnoy.txt if the log shows a challenge. The Instagram "
+                "adapter is still a stub. See the log."
             )
             return result
 
