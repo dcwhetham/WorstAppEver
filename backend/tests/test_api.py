@@ -347,3 +347,16 @@ def test_reaper_reclaims_a_live_job_with_no_lease(conn, client):
     row = conn.execute("SELECT status, claimed_by FROM scrape_jobs WHERE account_id = ?", (account["id"],)).fetchone()
     assert row["status"] == "queued"
     assert row["claimed_by"] is None
+
+
+def test_embedded_scraper_stays_off_unless_asked(monkeypatch):
+    """Tests and the Docker backend image must not spawn a worker by accident."""
+    from app.embed import embed_enabled, start_embedded_scraper
+
+    monkeypatch.delenv("EMBED_SCRAPER", raising=False)
+    assert embed_enabled() is False
+    assert start_embedded_scraper() is None
+
+
+def test_workers_endpoint_is_empty_not_an_error_when_nobody_has_beaten(client):
+    assert client.get("/api/workers").json() == []

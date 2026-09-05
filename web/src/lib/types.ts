@@ -177,6 +177,7 @@ export interface WorkerStatus {
   version: string | null;
   status: string;
   current_job_id: number | null;
+  detail: string | null;
   beat_at: string;
   started_at: string;
   is_alive: boolean;

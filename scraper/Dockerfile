@@ -27,13 +27,15 @@ ENV ARCHIVE_DB_PATH=/data/archive.db \
     MIGRATIONS_DIR=/srv/db/migrations \
     COOKIE_DIR=/data/cookies
 
-# Run unprivileged. This process writes only to /archive and /data, and a
-# scraper parsing untrusted remote HTML is the last thing that should own root.
-RUN useradd --create-home --uid 10001 worker
-USER worker
-
-# No port and no healthcheck, both intentional. The worker exposes no interface
-# of any kind — it reports liveness by writing to `worker_heartbeats`, which the
-# dashboard reads and renders, and it holds a job lease while running so an
-# unclean stop lets the lease expire instead of losing the job.
+# Runs as root by default. That is a deliberate trade: the worker must write the
+# SQLite file (and its WAL sidecars) on the shared `archive-data` volume and
+# create account folders on the host bind-mount. A named volume is root-owned on
+# first boot, and `./archive` is owned by whatever uid ran compose — uid 10001
+# can do neither, so the process died before its first heartbeat and the
+# dashboard reported "Scraper never connected".
+#
+# Pin a host-matching uid with `user: "${PUID}:${PGID}"` in compose if you want
+# the files to come out owned by you rather than root.
+#
+# No port and no healthcheck, both intentional. Liveness is `worker_heartbeats`.
 CMD ["python", "-m", "worker.main"]

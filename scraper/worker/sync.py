@@ -165,7 +165,11 @@ class SyncEngine:
             # Terminal results always carry a message: it is what the log viewer
             # renders, and the whole point of that modal is not having to read
             # container logs to find out why an account stopped updating.
-            result.message = f"All {len(links)} source(s) failed; see the log for the last error"
+            result.message = (
+                f"All {len(links)} source(s) failed. The bundled Instagram/Imginn/Pixnoy "
+                "adapters are stubs until implemented — a job against a live handle will "
+                "not download anything until one of them is filled in. See the log."
+            )
             return result
 
         # ---------------- plan ----------------

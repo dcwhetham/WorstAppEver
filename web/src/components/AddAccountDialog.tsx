@@ -62,7 +62,7 @@ export function AddAccountDialog({ open, onClose }: { open: boolean; onClose: ()
       open={open}
       onClose={onClose}
       title="Add account"
-      subtitle="Creates the archive folders, derives mirror links, and queues a paced first sync"
+      subtitle="Creates the archive folders, derives mirror links, and queues a paced first sync. The scraper worker has to be running for that job to start."
     >
       <form onSubmit={submit} className="space-y-4 p-5">
         <Field label="Handle" hint="Also the folder name under /archive. Letters, digits, dot, underscore, hyphen.">

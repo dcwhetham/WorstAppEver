@@ -400,18 +400,23 @@ directly openable in your own file manager and video player.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
+pip install -r backend/requirements.txt -r scraper/requirements.txt
+cd web && npm install
 
-# backend  → http://localhost:8000  (OpenAPI docs at /docs)
-pip install -r backend/requirements.txt -e 'backend[dev]'
-cd backend && uvicorn app.main:app --reload
-
-# scraper (separate shell, same venv)
-pip install -r scraper/requirements.txt -e 'scraper[dev]'
-cd scraper && python -m worker.main
-
-# web      → http://localhost:3000
-cd web && npm install && npm run dev
+# two terminals:
+make backend    # API on :8000, plus an embedded scraper worker
+make web        # dashboard on :3000
 ```
+
+`make backend` sets `EMBED_SCRAPER=1`, which starts the same `worker.main` as a
+sibling process. Without that (or a separate `make scraper` / `docker compose up
+scraper`), adding an account queues a job that nobody claims and the header
+reads **Scraper never connected** — the dashboard does not scrape itself.
+
+The bundled Instagram / Imginn / Pixnoy adapters are stubs. A job against a live
+handle will fail loudly in the log viewer until one of them is implemented;
+point `SCRAPER_FIXTURE_DIR` at a local tree to exercise the real incremental
+path offline.
 
 Migrations run automatically on startup for both Python services. To load sample
 accounts, jobs and error history:

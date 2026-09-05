@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 
 from .config import get_settings
 from .db import connect, migrate
+from .embed import start_embedded_scraper, stop_embedded_scraper
 from .repositories import jobs as jobs_repo
 from .routers import accounts, jobs, logs, media, system
 
@@ -47,7 +48,12 @@ async def lifespan(app: FastAPI):
 
     logger.info("archive root: %s", settings.archive_root)
     logger.info("database: %s", settings.db_path)
+
+    # Optional. Off in Docker (the scraper service is the worker there) and on
+    # for `make backend`, so a two-terminal local setup still heartbeats.
+    scraper = start_embedded_scraper()
     yield
+    stop_embedded_scraper(scraper)
 
 
 def create_app() -> FastAPI:

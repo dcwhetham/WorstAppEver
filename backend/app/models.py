@@ -260,6 +260,7 @@ class WorkerStatus(ORMModel):
     version: str | None = None
     status: str
     current_job_id: int | None = None
+    detail: str | None = None
     beat_at: str
     started_at: str
     # Derived: heartbeat newer than the staleness window.

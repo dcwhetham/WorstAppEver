@@ -8,6 +8,8 @@ over a real filesystem — which is exactly what the fixture adapter enables.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from conftest import make_account, make_fixture_files, queue_job, run_sync
 
 
@@ -434,3 +436,34 @@ def test_account_with_no_links_reports_a_message(conn, env, settings):
 
     assert result.status == "failed"
     assert result.message
+
+
+def test_startup_writes_a_heartbeat_when_archive_cannot_be_created(tmp_path, monkeypatch):
+    """A permission error must not exit before the first heartbeat.
+
+    That is exactly how 'Scraper never connected' happened: the process died on
+    `archive_root.mkdir` and left no row for the dashboard to read.
+    """
+    from worker.config import WorkerEnv
+    from worker.db import connect
+    from worker.main import Worker
+
+    db_path = tmp_path / "archive.db"
+    blocker = tmp_path / "archive"
+    blocker.write_text("not a directory")
+
+    monkeypatch.setenv("ARCHIVE_DB_PATH", str(db_path))
+    monkeypatch.setenv("ARCHIVE_ROOT", str(blocker))
+    monkeypatch.setenv("MIGRATIONS_DIR", str(Path(__file__).resolve().parents[2] / "db" / "migrations"))
+    monkeypatch.setenv("WORKER_ID", "stuck-worker")
+
+    env = WorkerEnv()
+    monkeypatch.setattr(Worker, "_loop", lambda self: None)
+
+    assert Worker(env).start() == 0
+
+    conn = connect(env.db_path)
+    row = conn.execute("SELECT worker_id, status FROM worker_heartbeats").fetchone()
+    conn.close()
+    assert row is not None
+    assert row["worker_id"] == "stuck-worker"

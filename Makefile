@@ -38,8 +38,11 @@ seed: ## Load demo accounts, jobs and error history into the database
 # --- run --------------------------------------------------------------------
 
 .PHONY: backend
-backend: ## Run the API with reload on :8000
-	cd backend && ../$(VENV)/bin/uvicorn app.main:app --reload --port 8000
+backend: ## Run the API with reload on :8000, and an embedded scraper worker
+	# EMBED_SCRAPER starts worker.main as a sibling process so adding an account
+	# does not sit forever next to "Scraper never connected". The dedicated
+	# `make scraper` target is still the right way to run a standalone worker.
+	cd backend && EMBED_SCRAPER=1 ../$(VENV)/bin/uvicorn app.main:app --reload --port 8000
 
 .PHONY: scraper
 scraper: ## Run the scraper worker in the foreground
@@ -48,6 +51,12 @@ scraper: ## Run the scraper worker in the foreground
 .PHONY: web
 web: ## Run the Next.js dev server on :3000
 	cd web && npm run dev
+
+.PHONY: dev
+dev: ## Install deps, then print the two commands that bring the stack up locally
+	@echo "In two terminals:"
+	@echo "  make backend    # API on :8000 + embedded scraper"
+	@echo "  make web        # dashboard on :3000"
 
 .PHONY: up
 up: ## Build and start all three services in Docker

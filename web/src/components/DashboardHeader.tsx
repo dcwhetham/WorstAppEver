@@ -27,6 +27,8 @@ export function DashboardHeader() {
 
   const live = workers.filter((worker) => worker.is_alive);
   const scraper = live[0];
+  const queued = stats?.queued_jobs ?? 0;
+  const waitingOnWorker = !scraper && queued > 0;
 
   const triggerScan = () => {
     startTransition(async () => {
@@ -56,12 +58,22 @@ export function DashboardHeader() {
         <div className="flex flex-wrap items-center gap-2">
           <WorkerPill
             online={Boolean(scraper)}
+            errored={scraper?.status === "error"}
             label={
               scraper
-                ? `Scraper ${scraper.status}${scraper.current_job_id ? ` · job #${scraper.current_job_id}` : ""}`
+                ? scraper.status === "error"
+                  ? `Scraper error${scraper.detail ? ` · ${scraper.detail}` : ""}`
+                  : `Scraper ${scraper.status}${scraper.current_job_id ? ` · job #${scraper.current_job_id}` : ""}`
                 : workers.length > 0
                   ? `Scraper offline · last beat ${relativeTime(workers[0]?.beat_at)}`
-                  : "Scraper never connected"
+                  : queued > 0
+                    ? `Scraper never connected · ${queued} job${queued === 1 ? "" : "s"} waiting`
+                    : "Scraper never connected"
+            }
+            title={
+              scraper
+                ? scraper.detail ?? scraper.status
+                : "No worker has written a heartbeat. Start it with `make scraper`, or `make backend` (embeds one), or `docker compose up scraper`."
             }
           />
 
@@ -86,6 +98,16 @@ export function DashboardHeader() {
           </button>
         </div>
       </div>
+
+      {waitingOnWorker && (
+        <p className="rounded-lg border border-amber/40 bg-amber/[0.07] px-3 py-2 text-[12px] text-amber">
+          {queued} scrape job{queued === 1 ? "" : "s"} queued, but no worker has connected. The
+          dashboard does not scrape itself — start the scraper with{" "}
+          <code className="text-cyan">make scraper</code>, run{" "}
+          <code className="text-cyan">make backend</code> (it embeds one), or{" "}
+          <code className="text-cyan">docker compose up scraper</code>.
+        </p>
+      )}
 
       {scanNote && (
         <p className="rounded-lg border border-cyan/25 bg-cyan/[0.05] px-3 py-2 text-[12px] text-cyan-bright">
@@ -114,13 +136,27 @@ export function DashboardHeader() {
   );
 }
 
-function WorkerPill({ online, label }: { online: boolean; label: string }) {
+function WorkerPill({
+  online,
+  label,
+  title,
+  errored = false,
+}: {
+  online: boolean;
+  label: string;
+  title?: string;
+  errored?: boolean;
+}) {
   return (
     <span
-      title={label}
+      title={title ?? label}
       className={clsx(
         "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[12px]",
-        online ? "border-mint/40 bg-mint/[0.07] text-mint" : "border-hairline bg-surface-2 text-ink-faint",
+        errored
+          ? "border-rose/40 bg-rose/[0.07] text-rose"
+          : online
+            ? "border-mint/40 bg-mint/[0.07] text-mint"
+            : "border-hairline bg-surface-2 text-ink-faint",
       )}
     >
       <span className={clsx("h-2 w-2 rounded-full", online ? "bg-mint pulse-ring" : "bg-ink-faint/60")} />

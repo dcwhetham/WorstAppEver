@@ -81,18 +81,43 @@ class Worker:
         logger.info("database: %s", self.env.db_path)
         logger.info("archive:  %s", self.env.archive_root)
 
-        self.conn = connect(self.env.db_path)
+        # Stay up and keep retrying. Exiting here is how a permission error on
+        # first boot became "Scraper never connected" with no row to explain it:
+        # the process died before it could write a heartbeat.
+        while self._running and self.conn is None:
+            try:
+                self.conn = connect(self.env.db_path)
+            except OSError as exc:
+                logger.error("cannot open database %s: %s; retrying in 5s", self.env.db_path, exc)
+                time.sleep(5)
+
+        if self.conn is None:
+            return 1
+
         # Either container may boot first, so the scraper applies migrations too
         # rather than waiting on the backend.
         if wait_for_schema(self.conn, self.env.migrations_dir):
             logger.info("applied pending migrations")
 
-        self.env.archive_root.mkdir(parents=True, exist_ok=True)
+        heartbeat(self.conn, self.env.worker_id, status="starting", version=VERSION)
+        try:
+            self.env.archive_root.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            # Still beat, with status=error, so the dashboard shows a connected
+            # worker that cannot write rather than an empty pill.
+            logger.error("archive %s is not writable: %s", self.env.archive_root, exc)
+            heartbeat(
+                self.conn,
+                self.env.worker_id,
+                status="error",
+                version=VERSION,
+                detail=f"archive not writable: {exc}",
+            )
+
         removed = cleanup_partials(self.env.archive_root)
         if removed:
             logger.info("removed %d abandoned .part file(s) from a previous run", removed)
 
-        heartbeat(self.conn, self.env.worker_id, status="starting", version=VERSION)
         reap_expired_leases(self.conn)
 
         try:

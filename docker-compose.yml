@@ -32,6 +32,9 @@ services:
       # Only needed if you point a browser straight at :8000 instead of going
       # through the Next proxy.
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      # The scraper is its own service below. Embedding a worker inside this
+      # container would start two of them against the same queue.
+      EMBED_SCRAPER: "0"
     volumes:
       # The archive is bind-mounted, not a named volume, because "files must
       # remain completely raw for direct local viewing" means you need to be
@@ -80,6 +83,10 @@ services:
     volumes:
       - ${ARCHIVE_HOST_PATH:-./archive}:/archive
       - archive-data:/data
+    # Default is root so the first boot can create archive.db-wal on the named
+    # volume and account folders on the bind-mount. Set PUID/PGID to your host
+    # user if you want those files owned by you.
+    user: "${PUID:-0}:${PGID:-0}"
     # Everything else — schedule window, delays, per-run budgets, which accounts
     # are enabled — lives in the `settings` and `accounts` tables and is edited
     # from the Web GUI. There is no scraper config file by design.
