@@ -42,7 +42,7 @@ export function AccountGrid({
 }) {
   if (isLoading && !accounts) {
     return (
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {Array.from({ length: 10 }, (_, index) => (
           <div key={index} className="aspect-4/5 animate-pulse rounded-2xl bg-surface-2/70" />
         ))}
@@ -66,7 +66,7 @@ export function AccountGrid({
 
   return (
     <LayoutGroup>
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         <AnimatePresence>
           {accounts?.map((account, index) => (
             <motion.div

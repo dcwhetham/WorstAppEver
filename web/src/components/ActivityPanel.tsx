@@ -40,7 +40,7 @@ export function ActivityPanel() {
   );
   const latest = live[0] ?? recent[0] ?? null;
 
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   // Open itself the first time work appears so a silent queue is not missed;
   // after that the user's toggle wins for the session.

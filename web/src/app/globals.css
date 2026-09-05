@@ -110,7 +110,7 @@
    */
   perspective: var(--perspective-card);
   perspective-origin: 50% 40%;
-  padding: 0.7rem 0.45rem;
+  padding: 0.95rem 0.7rem;
 }
 
 @utility preserve-3d {
