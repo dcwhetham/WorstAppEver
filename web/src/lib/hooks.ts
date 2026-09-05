@@ -19,6 +19,7 @@ import type {
   AccountDetail,
   AccountFilters,
   ArchiveStats,
+  JobRecord,
   LogEntry,
   MediaPage,
   WorkerStatus,
@@ -62,6 +63,17 @@ export function useStats() {
 
 export function useWorkers() {
   const { data } = useSWR<WorkerStatus[]>("/api/workers", fetcher, { refreshInterval: 15_000 });
+  return data ?? [];
+}
+
+function isLiveJob(job: JobRecord): boolean {
+  return job.status === "queued" || job.status === "claimed" || job.status === "running" || job.status === "deferred";
+}
+
+export function useJobs(limit = 20) {
+  const { data } = useSWR<JobRecord[]>(`/api/jobs?limit=${limit}`, fetcher, {
+    refreshInterval: (latest) => (latest?.some(isLiveJob) ? ACTIVE_POLL_MS : IDLE_POLL_MS),
+  });
   return data ?? [];
 }
 
