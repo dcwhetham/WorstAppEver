@@ -43,7 +43,7 @@ EXPOSE 8000
 # missing — precisely the conditions that should keep this container out of
 # rotation rather than let it serve an empty dashboard.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD python -c "import sys,urllib.request as u; sys.exit(0 if u.urlopen('http://127.0.0.1:8000/api/system/health', timeout=4).status == 200 else 1)"
+    CMD python -c "import sys,urllib.request as u; sys.exit(0 if u.urlopen('http://127.0.0.1:8000/api/health', timeout=4).status == 200 else 1)"
 
 # One worker, deliberately. SQLite in WAL mode is happy with concurrent readers,
 # but several uvicorn workers would each run migrations at startup and race each

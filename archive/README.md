@@ -35,7 +35,7 @@ second thing that can disagree with the disk.
 ## Adding files by hand
 
 Drop them into the right subfolder and run **Scan archive** from the dashboard
-(or `POST /api/system/scan`). The scanner walks the tree, classifies by
+(or `POST /api/scan`). The scanner walks the tree, classifies by
 extension, hashes anything new or changed, and indexes it. Manually added files
 get a `media_files` row with no `source_provider`, which is how the UI knows they
 were not scraped.
