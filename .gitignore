@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------------------
+# The archive itself is never committed. It is the user's data, it is enormous,
+# and it is the one thing in this repo that cannot be regenerated.
+# ---------------------------------------------------------------------------
+/archive/*
+!/archive/.gitkeep
+!/archive/README.md
+
+# Database, bundle cache, cookies. All derived or secret.
+/data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Abandoned partial downloads
+*.part
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+.eslintcache
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp

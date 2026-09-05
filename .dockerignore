@@ -1,0 +1,32 @@
+# Context for the backend and scraper images is the repo root, so keeping the
+# archive and the frontend out of it is the difference between a small build
+# context and shipping the user's entire media library to the daemon.
+archive/*
+!archive/.gitkeep
+data/
+web/
+
+.git/
+.github/
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+*.db
+*.db-wal
+*.db-shm
+*.part
+
+.env
+.env.local
+!.env.example
+.vscode/
+.idea/
+.DS_Store
